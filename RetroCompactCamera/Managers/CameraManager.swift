@@ -104,8 +104,18 @@ class CameraManager: NSObject {
         if captureSession.canAddOutput(photoOutput) {
             captureSession.addOutput(photoOutput)
             
+            // 写真出力の設定
             photoOutput.isHighResolutionCaptureEnabled = true
             photoOutput.maxPhotoQualityPrioritization = .quality
+            
+            // サポートされているフォーマットを確認
+            if photoOutput.availablePhotoCodecTypes.contains(.jpeg) {
+                print("CameraManager: JPEG codec is available")
+            } else {
+                print("CameraManager: JPEG codec is not available")
+            }
+            
+            print("CameraManager: Photo output added successfully")
             
         } else {
             print("Could not add photo output to the session")
@@ -168,17 +178,35 @@ class CameraManager: NSObject {
     // MARK: - Photo Capture
     
     func capturePhoto() {
-        let photoSettings = AVCapturePhotoSettings()
+        // 現在のデバイスのフォーマットを取得
+        guard let device = videoDeviceInput?.device else {
+            print("No video device available for photo capture")
+            return
+        }
         
-        if videoDeviceInput?.device.isFlashAvailable == true {
+        // デバイスのフォーマットを使用してPhotoSettingsを作成
+        let photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
+        
+        // フラッシュ設定
+        if device.isFlashAvailable {
             photoSettings.flashMode = .auto
         }
         
+        // 高解像度写真を有効化
         photoSettings.isHighResolutionPhotoEnabled = true
         
+        // プレビュー写真の設定
         if let previewPhotoPixelFormatType = photoSettings.availablePreviewPhotoPixelFormatTypes.first {
             photoSettings.previewPhotoFormat = [kCVPixelBufferPixelFormatTypeKey as String: previewPhotoPixelFormatType]
         }
+        
+        // セッションが実行中かチェック
+        guard isSessionRunning else {
+            print("Camera session is not running, cannot capture photo")
+            return
+        }
+        
+        print("Capturing photo with settings: \(photoSettings)")
         
         sessionQueue.async {
             self.photoOutput.capturePhoto(with: photoSettings, delegate: self)
@@ -243,13 +271,22 @@ class CameraManager: NSObject {
     
     func switchCamera() {
         sessionQueue.async {
-            guard let currentInput = self.videoDeviceInput else { return }
+            guard let currentInput = self.videoDeviceInput else { 
+                print("No current video input available")
+                return 
+            }
             
             let currentPosition = currentInput.device.position
             let preferredPosition: AVCaptureDevice.Position = (currentPosition == .back) ? .front : .back
             
+            print("Switching from \(currentPosition == .back ? "back" : "front") to \(preferredPosition == .back ? "back" : "front") camera")
+            
             guard let newDevice = self.videoDevice(for: preferredPosition) else {
                 print("Failed to find camera device for position: \(preferredPosition)")
+                DispatchQueue.main.async {
+                    let error = NSError(domain: "CameraManager", code: 4, userInfo: [NSLocalizedDescriptionKey: "カメラの切り替えに失敗しました"])
+                    self.delegate?.cameraManager(self, didFailWithError: error)
+                }
                 return
             }
             
@@ -257,20 +294,39 @@ class CameraManager: NSObject {
                 let newInput = try AVCaptureDeviceInput(device: newDevice)
                 
                 self.captureSession.beginConfiguration()
+                
+                // 現在の入力を削除
                 self.captureSession.removeInput(currentInput)
                 
+                // 新しい入力を追加
                 if self.captureSession.canAddInput(newInput) {
                     self.captureSession.addInput(newInput)
                     self.videoDeviceInput = newInput
+                    print("Successfully switched to \(preferredPosition == .back ? "back" : "front") camera")
                 } else {
+                    // 失敗した場合は元の入力を復元
                     self.captureSession.addInput(currentInput)
-                    print("Could not add new camera input")
+                    print("Could not add new camera input, reverting to original")
                 }
                 
                 self.captureSession.commitConfiguration()
                 
             } catch {
                 print("Error switching cameras: \(error)")
+                // エラー時は元の入力を復元
+                do {
+                    self.captureSession.beginConfiguration()
+                    if self.captureSession.canAddInput(currentInput) {
+                        self.captureSession.addInput(currentInput)
+                    }
+                    self.captureSession.commitConfiguration()
+                } catch {
+                    print("Failed to restore original camera input: \(error)")
+                }
+                
+                DispatchQueue.main.async {
+                    self.delegate?.cameraManager(self, didFailWithError: error)
+                }
             }
         }
     }
@@ -290,32 +346,84 @@ class CameraManager: NSObject {
         
         return discoverySession.devices.first
     }
+    
+    // MARK: - Image Orientation Fix
+    
+    private func fixImageOrientation(_ image: UIImage) -> UIImage {
+        // 画像の向きが正しい場合はそのまま返す
+        if image.imageOrientation == .up {
+            return image
+        }
+        
+        // 画像を正しい向きに回転
+        UIGraphicsBeginImageContextWithOptions(image.size, false, image.scale)
+        image.draw(in: CGRect(origin: .zero, size: image.size))
+        let correctedImage = UIGraphicsGetImageFromCurrentImageContext() ?? image
+        UIGraphicsEndImageContext()
+        
+        return correctedImage
+    }
 }
 
 // MARK: - AVCapturePhotoCaptureDelegate
 
 extension CameraManager: AVCapturePhotoCaptureDelegate {
     
+    func photoOutput(_ output: AVCapturePhotoOutput, willBeginCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
+        print("CameraManager: Photo capture will begin")
+    }
+    
+    func photoOutput(_ output: AVCapturePhotoOutput, willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
+        print("CameraManager: Photo capture in progress")
+    }
+    
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        print("CameraManager: Photo processing finished")
         
         if let error = error {
+            print("CameraManager: Photo capture error: \(error.localizedDescription)")
             DispatchQueue.main.async {
                 self.delegate?.cameraManager(self, didFailWithError: error)
             }
             return
         }
         
-        guard let imageData = photo.fileDataRepresentation(),
-              let image = UIImage(data: imageData) else {
-            let error = NSError(domain: "CameraManager", code: 3, userInfo: [NSLocalizedDescriptionKey: "写真データの処理に失敗しました"])
+        print("CameraManager: Photo captured successfully, processing image data...")
+        
+        guard let imageData = photo.fileDataRepresentation() else {
+            print("CameraManager: Failed to get file data representation")
+            let error = NSError(domain: "CameraManager", code: 3, userInfo: [NSLocalizedDescriptionKey: "写真データの取得に失敗しました"])
             DispatchQueue.main.async {
                 self.delegate?.cameraManager(self, didFailWithError: error)
             }
             return
         }
+        
+        print("CameraManager: Image data size: \(imageData.count) bytes")
+        
+        guard let image = UIImage(data: imageData) else {
+            print("CameraManager: Failed to create UIImage from data")
+            let error = NSError(domain: "CameraManager", code: 4, userInfo: [NSLocalizedDescriptionKey: "画像の作成に失敗しました"])
+            DispatchQueue.main.async {
+                self.delegate?.cameraManager(self, didFailWithError: error)
+            }
+            return
+        }
+        
+        print("CameraManager: Image created successfully, size: \(image.size)")
+        
+        // 画像の向きを修正（縦向きで保存）
+        let correctedImage = self.fixImageOrientation(image)
         
         DispatchQueue.main.async {
-            self.delegate?.cameraManager(self, didCapturePhoto: image)
+            self.delegate?.cameraManager(self, didCapturePhoto: correctedImage)
+        }
+    }
+    
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
+        print("CameraManager: Photo capture session finished")
+        if let error = error {
+            print("CameraManager: Photo capture session error: \(error.localizedDescription)")
         }
     }
 }

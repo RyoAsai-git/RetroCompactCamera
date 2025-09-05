@@ -33,6 +33,14 @@ class CameraViewController: UIViewController {
     // Exposure settings
     private var isGridVisible = false
     
+    // Zoom settings
+    private var zoomFactor: CGFloat = 1.0
+    private var maxZoomFactor: CGFloat = 10.0
+    private var minZoomFactor: CGFloat = 1.0
+    private var zoomButtons: [UIButton] = []
+    private var zoomButtonBackgrounds: [UIView] = []
+    private var zoomStackView: UIStackView!
+    
     // MARK: - Properties
     
     private let cameraManager = CameraManager()
@@ -53,13 +61,18 @@ class CameraViewController: UIViewController {
         super.viewDidLoad()
         createUI()
         setupUI()
-        setupCamera()
         setupTimer()
         updateUIForCurrentMode()
+        
+        // カメラの設定はviewWillAppearで行う
+        cameraManager.delegate = self
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        
+        // カメラセッションの初期化と開始
+        setupCamera()
         
         cameraManager.checkCameraAuthorization { [weak self] granted in
             print("Camera authorization granted: \(granted)")
@@ -75,7 +88,13 @@ class CameraViewController: UIViewController {
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        
+        // セッションを停止してリソースを解放
         cameraManager.stopSession()
+        
+        // タイマーを停止
+        dateTimeTimer?.invalidate()
+        dateTimeTimer = nil
     }
     
     override func viewDidLayoutSubviews() {
@@ -135,11 +154,18 @@ class CameraViewController: UIViewController {
         // Grid Overlay
         createGridOverlay()
         
+        // Zoom Controls
+        createZoomControls()
+        
         setupConstraints()
         
         // タップジェスチャーの追加
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handlePreviewTap(_:)))
         previewView.addGestureRecognizer(tapGesture)
+        
+        // ピンチジェスチャーの追加
+        let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(handlePinchGesture(_:)))
+        previewView.addGestureRecognizer(pinchGesture)
     }
     
     private func setupMetal() {
@@ -168,35 +194,29 @@ class CameraViewController: UIViewController {
         flashButton.addTarget(self, action: #selector(flashButtonTapped), for: .touchUpInside)
         view.addSubview(flashButton)
         
-        // Grid Button (Top Left, next to flash) - iOS Camera style
+        // Grid Button (Top Left, next to flash) - iOS Camera style with custom grid icon
         gridButton = UIButton(type: .custom)
+        gridButton.setImage(createGridIcon(), for: .normal)
+        gridButton.tintColor = .white
         gridButton.backgroundColor = UIColor.black.withAlphaComponent(0.3)
         gridButton.layer.cornerRadius = 22
         gridButton.layer.borderWidth = 1
         gridButton.layer.borderColor = UIColor.white.withAlphaComponent(0.2).cgColor
+        gridButton.layer.shadowColor = UIColor.black.cgColor
+        gridButton.layer.shadowOffset = CGSize(width: 0, height: 1)
+        gridButton.layer.shadowRadius = 4
+        gridButton.layer.shadowOpacity = 0.2
         gridButton.translatesAutoresizingMaskIntoConstraints = false
         gridButton.addTarget(self, action: #selector(gridButtonTapped), for: .touchUpInside)
         view.addSubview(gridButton)
-        
-        // Create custom grid icon
-        let gridIconView = createGridIconView()
-        gridIconView.translatesAutoresizingMaskIntoConstraints = false
-        gridButton.addSubview(gridIconView)
-        
-        NSLayoutConstraint.activate([
-            gridIconView.centerXAnchor.constraint(equalTo: gridButton.centerXAnchor),
-            gridIconView.centerYAnchor.constraint(equalTo: gridButton.centerYAnchor),
-            gridIconView.widthAnchor.constraint(equalToConstant: 20),
-            gridIconView.heightAnchor.constraint(equalToConstant: 20)
-        ])
         
         // Exposure Info Label (Top Center)
         exposureInfoLabel = UILabel()
         exposureInfoLabel.text = "1/250s • f/2.8 • ISO 400"
         exposureInfoLabel.textColor = .white
-        exposureInfoLabel.font = UIFont.systemFont(ofSize: 13, weight: .medium)
-        exposureInfoLabel.backgroundColor = UIColor.black.withAlphaComponent(0.6)
-        exposureInfoLabel.layer.cornerRadius = 12
+        exposureInfoLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        exposureInfoLabel.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+        exposureInfoLabel.layer.cornerRadius = 8
         exposureInfoLabel.layer.masksToBounds = true
         exposureInfoLabel.textAlignment = .center
         exposureInfoLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -232,11 +252,7 @@ class CameraViewController: UIViewController {
             gridButton.widthAnchor.constraint(equalToConstant: 40),
             gridButton.heightAnchor.constraint(equalToConstant: 40),
             
-            // Exposure Info Label
-            exposureInfoLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
-            exposureInfoLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            exposureInfoLabel.heightAnchor.constraint(equalToConstant: 24),
-            exposureInfoLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 150),
+            // Exposure Info Label constraints will be set after modeScrollView is created
             
             // Timer Button
             timerButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
@@ -267,26 +283,34 @@ class CameraViewController: UIViewController {
             modeButtons.append(button)
             modeStackView.addArrangedSubview(button)
         }
+        
+        // Set exposure info label constraints after modeScrollView is created
+        NSLayoutConstraint.activate([
+            exposureInfoLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            exposureInfoLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            exposureInfoLabel.heightAnchor.constraint(equalToConstant: 32),
+            exposureInfoLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 200)
+        ])
     }
     
     private func createModeButton(title: String, index: Int) -> UIButton {
         let button = UIButton(type: .custom)
         button.setTitle(title, for: .normal)
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .medium)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .medium) // iOS純正カメラ風
         button.setTitleColor(.white.withAlphaComponent(0.6), for: .normal)
-        button.setTitleColor(.white, for: .selected)
+        button.setTitleColor(.systemYellow, for: .selected) // 選択時は黄色
         button.tag = index
         button.addTarget(self, action: #selector(modeButtonTapped(_:)), for: .touchUpInside)
         
-        // iOS Camera style button design
+        // iOS純正カメラ風のスタイル
         button.backgroundColor = .clear
-        button.layer.cornerRadius = 20
+        button.layer.cornerRadius = 0
         button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
         
-        // Add subtle background for selected state
+        // 選択状態の背景（iOS純正カメラ風）
         let backgroundView = UIView()
-        backgroundView.backgroundColor = UIColor.white.withAlphaComponent(0.15)
-        backgroundView.layer.cornerRadius = 20
+        backgroundView.backgroundColor = .clear
+        backgroundView.layer.cornerRadius = 0
         backgroundView.isHidden = true
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         button.insertSubview(backgroundView, at: 0)
@@ -309,53 +333,69 @@ class CameraViewController: UIViewController {
         return button
     }
     
+    private func createGridIcon() -> UIImage? {
+        let size = CGSize(width: 20, height: 20)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        
+        return renderer.image { context in
+            let cgContext = context.cgContext
+            cgContext.setStrokeColor(UIColor.white.cgColor)
+            cgContext.setLineWidth(1.5)
+            
+            // 3x3グリッドを描画
+            let spacing = size.width / 3
+            
+            // 縦線
+            for i in 1...2 {
+                let x = spacing * CGFloat(i)
+                cgContext.move(to: CGPoint(x: x, y: 0))
+                cgContext.addLine(to: CGPoint(x: x, y: size.height))
+            }
+            
+            // 横線
+            for i in 1...2 {
+                let y = spacing * CGFloat(i)
+                cgContext.move(to: CGPoint(x: 0, y: y))
+                cgContext.addLine(to: CGPoint(x: size.width, y: y))
+            }
+            
+            cgContext.strokePath()
+        }
+    }
+    
     private func createCaptureButton() {
-        // Premium camera style capture button (Leica-inspired)
+        // Perfect iOS camera style capture button - completely round
         captureButton = UIButton(type: .custom)
         captureButton.backgroundColor = .clear
         captureButton.translatesAutoresizingMaskIntoConstraints = false
         captureButton.addTarget(self, action: #selector(captureButtonTapped), for: .touchUpInside)
         view.addSubview(captureButton)
         
-        // Outer ring with gradient effect
+        // Outer ring - perfect circle with white border
         let outerRing = UIView()
         outerRing.backgroundColor = .clear
-        outerRing.layer.borderWidth = 3
-        outerRing.layer.borderColor = UIColor.white.withAlphaComponent(0.8).cgColor
-        outerRing.layer.cornerRadius = 40 // 80/2
+        outerRing.layer.borderWidth = 4
+        outerRing.layer.borderColor = UIColor.white.cgColor
+        outerRing.layer.cornerRadius = 37.5 // 75/2 - perfect circle
         outerRing.layer.shadowColor = UIColor.black.cgColor
         outerRing.layer.shadowOffset = CGSize(width: 0, height: 2)
-        outerRing.layer.shadowRadius = 8
-        outerRing.layer.shadowOpacity = 0.3
+        outerRing.layer.shadowRadius = 6
+        outerRing.layer.shadowOpacity = 0.2
         outerRing.translatesAutoresizingMaskIntoConstraints = false
+        outerRing.isUserInteractionEnabled = false // タッチイベントを無効化
         captureButton.addSubview(outerRing)
         
-        // Middle ring for depth
-        let middleRing = UIView()
-        middleRing.backgroundColor = .clear
-        middleRing.layer.borderWidth = 1
-        middleRing.layer.borderColor = UIColor.white.withAlphaComponent(0.4).cgColor
-        middleRing.layer.cornerRadius = 35 // 70/2
-        middleRing.translatesAutoresizingMaskIntoConstraints = false
-        captureButton.addSubview(middleRing)
-        
-        // Inner circle with subtle gradient
+        // Inner circle - perfect solid white circle
         let innerCircle = UIView()
         innerCircle.backgroundColor = .white
-        innerCircle.layer.cornerRadius = 30 // 60/2
+        innerCircle.layer.cornerRadius = 30 // 60/2 - perfect circle
         innerCircle.layer.shadowColor = UIColor.black.cgColor
         innerCircle.layer.shadowOffset = CGSize(width: 0, height: 1)
-        innerCircle.layer.shadowRadius = 4
-        innerCircle.layer.shadowOpacity = 0.2
+        innerCircle.layer.shadowRadius = 3
+        innerCircle.layer.shadowOpacity = 0.1
         innerCircle.translatesAutoresizingMaskIntoConstraints = false
+        innerCircle.isUserInteractionEnabled = false // タッチイベントを無効化
         captureButton.addSubview(innerCircle)
-        
-        // Center dot for premium feel
-        let centerDot = UIView()
-        centerDot.backgroundColor = UIColor.black.withAlphaComponent(0.1)
-        centerDot.layer.cornerRadius = 8
-        centerDot.translatesAutoresizingMaskIntoConstraints = false
-        captureButton.addSubview(centerDot)
         
         // Add touch feedback
         captureButton.addTarget(self, action: #selector(captureButtonTouchDown), for: .touchDown)
@@ -364,23 +404,13 @@ class CameraViewController: UIViewController {
         NSLayoutConstraint.activate([
             outerRing.centerXAnchor.constraint(equalTo: captureButton.centerXAnchor),
             outerRing.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
-            outerRing.widthAnchor.constraint(equalToConstant: 80),
-            outerRing.heightAnchor.constraint(equalToConstant: 80),
-            
-            middleRing.centerXAnchor.constraint(equalTo: captureButton.centerXAnchor),
-            middleRing.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
-            middleRing.widthAnchor.constraint(equalToConstant: 70),
-            middleRing.heightAnchor.constraint(equalToConstant: 70),
+            outerRing.widthAnchor.constraint(equalToConstant: 75),
+            outerRing.heightAnchor.constraint(equalToConstant: 75),
             
             innerCircle.centerXAnchor.constraint(equalTo: captureButton.centerXAnchor),
             innerCircle.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
             innerCircle.widthAnchor.constraint(equalToConstant: 60),
-            innerCircle.heightAnchor.constraint(equalToConstant: 60),
-            
-            centerDot.centerXAnchor.constraint(equalTo: captureButton.centerXAnchor),
-            centerDot.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
-            centerDot.widthAnchor.constraint(equalToConstant: 16),
-            centerDot.heightAnchor.constraint(equalToConstant: 16)
+            innerCircle.heightAnchor.constraint(equalToConstant: 60)
         ])
     }
     
@@ -388,13 +418,12 @@ class CameraViewController: UIViewController {
         recentPhotoButton = UIButton(type: .custom)
         recentPhotoButton.backgroundColor = UIColor.black.withAlphaComponent(0.3)
         recentPhotoButton.layer.cornerRadius = 12
-        recentPhotoButton.layer.borderWidth = 2
-        recentPhotoButton.layer.borderColor = UIColor.white.withAlphaComponent(0.8).cgColor
+        recentPhotoButton.layer.borderWidth = 0 // 枠線を削除
         recentPhotoButton.layer.shadowColor = UIColor.black.cgColor
         recentPhotoButton.layer.shadowOffset = CGSize(width: 0, height: 2)
         recentPhotoButton.layer.shadowRadius = 6
         recentPhotoButton.layer.shadowOpacity = 0.3
-        recentPhotoButton.clipsToBounds = false
+        recentPhotoButton.clipsToBounds = true // 角丸を適用
         recentPhotoButton.translatesAutoresizingMaskIntoConstraints = false
         recentPhotoButton.addTarget(self, action: #selector(recentPhotoButtonTapped), for: .touchUpInside)
         view.addSubview(recentPhotoButton)
@@ -428,42 +457,6 @@ class CameraViewController: UIViewController {
         view.addSubview(cameraSwitchButton)
     }
     
-    private func createGridIconView() -> UIView {
-        let containerView = UIView()
-        containerView.backgroundColor = .clear
-        
-        // Create 3x3 grid lines using CALayer for better performance
-        let lineWidth: CGFloat = 1.5
-        let lineColor = UIColor.white.cgColor
-        
-        // Vertical lines
-        for i in 1...2 {
-            let line = CALayer()
-            line.backgroundColor = lineColor
-            line.frame = CGRect(
-                x: 20 * CGFloat(i) / 3.0 - lineWidth / 2,
-                y: 0,
-                width: lineWidth,
-                height: 20
-            )
-            containerView.layer.addSublayer(line)
-        }
-        
-        // Horizontal lines
-        for i in 1...2 {
-            let line = CALayer()
-            line.backgroundColor = lineColor
-            line.frame = CGRect(
-                x: 0,
-                y: 20 * CGFloat(i) / 3.0 - lineWidth / 2,
-                width: 20,
-                height: lineWidth
-            )
-            containerView.layer.addSublayer(line)
-        }
-        
-        return containerView
-    }
     
     private func createGridOverlay() {
         gridOverlay = UIView()
@@ -478,6 +471,73 @@ class CameraViewController: UIViewController {
             gridOverlay.trailingAnchor.constraint(equalTo: previewView.trailingAnchor),
             gridOverlay.bottomAnchor.constraint(equalTo: previewView.bottomAnchor)
         ])
+    }
+    
+    private func createZoomControls() {
+        // Zoom Stack View (iOS Camera style - number buttons)
+        zoomStackView = UIStackView()
+        zoomStackView.axis = .horizontal
+        zoomStackView.spacing = 8
+        zoomStackView.alignment = .center
+        zoomStackView.distribution = .fillEqually
+        zoomStackView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(zoomStackView)
+        
+        // Create zoom buttons (0.5x, 1x, 2x, 3x) - iOS純正カメラ風
+        let zoomLevels: [CGFloat] = [0.5, 1.0, 2.0, 3.0]
+        
+        for (index, level) in zoomLevels.enumerated() {
+            let button = createZoomButton(level: level, index: index)
+            zoomButtons.append(button)
+            zoomStackView.addArrangedSubview(button)
+        }
+        
+        // Set zoom stack view constraints after captureButton is created
+        NSLayoutConstraint.activate([
+            zoomStackView.bottomAnchor.constraint(equalTo: modeScrollView.topAnchor, constant: -10),
+            zoomStackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            zoomStackView.heightAnchor.constraint(equalToConstant: 40)
+        ])
+    }
+    
+    private func createZoomButton(level: CGFloat, index: Int) -> UIButton {
+        let button = UIButton(type: .custom)
+        button.setTitle(level == 1.0 ? "1" : String(format: "%.1f", level), for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .medium) // iOS純正カメラ風
+        button.setTitleColor(.white.withAlphaComponent(0.6), for: .normal)
+        button.setTitleColor(.systemYellow, for: .selected) // 選択時は黄色
+        button.tag = index
+        button.addTarget(self, action: #selector(zoomButtonTapped(_:)), for: .touchUpInside)
+        
+        // iOS純正カメラ風のボタンデザイン
+        button.backgroundColor = .clear
+        button.layer.cornerRadius = 0
+        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
+        
+        // 選択状態の背景（iOS純正カメラ風）
+        let backgroundView = UIView()
+        backgroundView.backgroundColor = .clear
+        backgroundView.layer.cornerRadius = 0
+        backgroundView.isHidden = true
+        backgroundView.translatesAutoresizingMaskIntoConstraints = false
+        button.insertSubview(backgroundView, at: 0)
+        
+        NSLayoutConstraint.activate([
+            backgroundView.topAnchor.constraint(equalTo: button.topAnchor),
+            backgroundView.leadingAnchor.constraint(equalTo: button.leadingAnchor),
+            backgroundView.trailingAnchor.constraint(equalTo: button.trailingAnchor),
+            backgroundView.bottomAnchor.constraint(equalTo: button.bottomAnchor)
+        ])
+        
+        // Store background view reference in array
+        zoomButtonBackgrounds.append(backgroundView)
+        
+        if level == 1.0 {
+            button.isSelected = true
+            backgroundView.isHidden = false
+        }
+        
+        return button
     }
     
     private func drawGridLines() {
@@ -526,11 +586,11 @@ class CameraViewController: UIViewController {
             previewView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
             
-            // Mode Scroll View
-            modeScrollView.bottomAnchor.constraint(equalTo: captureButton.topAnchor, constant: -40),
-            modeScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            modeScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            modeScrollView.heightAnchor.constraint(equalToConstant: 40),
+            // Mode Scroll View (above capture button, iOS camera style)
+            modeScrollView.bottomAnchor.constraint(equalTo: captureButton.topAnchor, constant: -20),
+            modeScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            modeScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            modeScrollView.heightAnchor.constraint(equalToConstant: 50),
             
             // Mode Stack View
             modeStackView.topAnchor.constraint(equalTo: modeScrollView.topAnchor),
@@ -539,11 +599,11 @@ class CameraViewController: UIViewController {
             modeStackView.trailingAnchor.constraint(equalTo: modeScrollView.trailingAnchor, constant: -50),
             modeStackView.heightAnchor.constraint(equalTo: modeScrollView.heightAnchor),
             
-            // Capture Button (Premium camera style)
+            // Capture Button (iOS default camera style)
             captureButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             captureButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -40),
-            captureButton.widthAnchor.constraint(equalToConstant: 80),
-            captureButton.heightAnchor.constraint(equalToConstant: 80),
+            captureButton.widthAnchor.constraint(equalToConstant: 75),
+            captureButton.heightAnchor.constraint(equalToConstant: 75),
             
             // Recent Photo Button (Left bottom - iOS camera style)
             recentPhotoButton.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
@@ -567,7 +627,9 @@ class CameraViewController: UIViewController {
             flashOverlayView.topAnchor.constraint(equalTo: view.topAnchor),
             flashOverlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             flashOverlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            flashOverlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            flashOverlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            
+            // Zoom Stack View constraints will be set after captureButton is created
         ])
     }
     
@@ -575,12 +637,7 @@ class CameraViewController: UIViewController {
         // プレビューの背景色
         previewView.backgroundColor = .black
         
-        // キャプチャボタンのスタイル
-        captureButton.layer.cornerRadius = captureButton.frame.width / 2
-        captureButton.backgroundColor = .white
-        captureButton.setTitle("", for: .normal)
-        captureButton.layer.borderWidth = 4
-        captureButton.layer.borderColor = UIColor.lightGray.cgColor
+        // キャプチャボタンのスタイルはcreateCaptureButton()で設定済み
         
         // モードボタンの初期設定
         updateModeSelection()
@@ -649,6 +706,23 @@ class CameraViewController: UIViewController {
     // MARK: - Actions
     
     @objc private func captureButtonTapped() {
+        print("CameraViewController: Capture button tapped - SUCCESS!")
+        print("CameraViewController: Button frame: \(captureButton.frame)")
+        print("CameraViewController: Button bounds: \(captureButton.bounds)")
+        
+        // カメラセッションが実行中かチェック
+        guard cameraManager.isSessionRunning else {
+            print("CameraViewController: Camera session is not running, cannot capture photo")
+            let alert = UIAlertController(
+                title: "カメラエラー",
+                message: "カメラが起動していません。しばらく待ってから再度お試しください。",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+            return
+        }
+        
         // シャッター音を再生（iOS標準音）
         AudioServicesPlaySystemSound(1108)
         
@@ -656,6 +730,7 @@ class CameraViewController: UIViewController {
         animateFlashEffect()
         
         // 写真撮影
+        print("CameraViewController: Calling cameraManager.capturePhoto()")
         cameraManager.capturePhoto()
         
         // ボタンアニメーション
@@ -663,27 +738,21 @@ class CameraViewController: UIViewController {
     }
     
     @objc private func captureButtonTouchDown() {
-        // Premium touch down animation with haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        print("CameraViewController: Capture button touch down detected")
+        // iOS camera style touch down animation
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()
         
+        // 内円の縮小アニメーション
         UIView.animate(withDuration: 0.1, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
             self.captureButton.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
-            
-            // Add subtle glow effect
-            self.captureButton.layer.shadowRadius = 12
-            self.captureButton.layer.shadowOpacity = 0.4
         })
     }
     
     @objc private func captureButtonTouchUp() {
-        // Premium touch up animation
-        UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.8, options: [.curveEaseInOut], animations: {
+        // iOS camera style touch up animation
+        UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
             self.captureButton.transform = .identity
-            
-            // Remove glow effect
-            self.captureButton.layer.shadowRadius = 8
-            self.captureButton.layer.shadowOpacity = 0.3
         })
     }
     
@@ -693,7 +762,7 @@ class CameraViewController: UIViewController {
             for (index, button) in self.modeButtons.enumerated() {
                 let isSelected = (index == sender.tag)
                 button.isSelected = isSelected
-                button.setTitleColor(isSelected ? .white : .white.withAlphaComponent(0.6), for: .normal)
+                button.setTitleColor(isSelected ? .systemYellow : .white.withAlphaComponent(0.6), for: .normal)
                 button.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: isSelected ? .semibold : .medium)
                 
                 // Animate background view using array reference
@@ -755,6 +824,7 @@ class CameraViewController: UIViewController {
                 self.gridOverlay.isHidden = false
                 self.gridButton.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.3)
                 self.gridButton.layer.borderColor = UIColor.systemYellow.cgColor
+                self.gridButton.tintColor = .systemYellow
                 // Draw grid lines after a short delay to ensure bounds are set
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.drawGridLines()
@@ -763,6 +833,7 @@ class CameraViewController: UIViewController {
                 self.gridOverlay.isHidden = true
                 self.gridButton.backgroundColor = UIColor.black.withAlphaComponent(0.3)
                 self.gridButton.layer.borderColor = UIColor.white.withAlphaComponent(0.2).cgColor
+                self.gridButton.tintColor = .white
             }
         })
     }
@@ -804,6 +875,104 @@ class CameraViewController: UIViewController {
         cameraManager.focusAndExpose(at: convertedPoint)
     }
     
+    @objc private func handlePinchGesture(_ gesture: UIPinchGestureRecognizer) {
+        guard let device = cameraManager.getCurrentDevice() else { return }
+        
+        switch gesture.state {
+        case .began:
+            // ズーム開始時の処理
+            break
+        case .changed:
+            // ズーム倍率を更新
+            let newZoomFactor = zoomFactor * gesture.scale
+            let clampedZoomFactor = max(minZoomFactor, min(newZoomFactor, maxZoomFactor))
+            
+            do {
+                try device.lockForConfiguration()
+                device.videoZoomFactor = clampedZoomFactor
+                device.unlockForConfiguration()
+                
+                zoomFactor = clampedZoomFactor
+                updateZoomButtonsForCurrentFactor()
+            } catch {
+                print("Failed to set zoom factor: \(error)")
+            }
+            
+            gesture.scale = 1.0
+        case .ended, .cancelled:
+            // ズーム終了時の処理
+            break
+        default:
+            break
+        }
+    }
+    
+    private func updateZoomButtonsForCurrentFactor() {
+        let zoomLevels: [CGFloat] = [0.5, 1.0, 2.0, 3.0]
+        
+        // 現在のズーム倍率に最も近いボタンを選択
+        var closestIndex = 0
+        var minDifference = abs(zoomFactor - zoomLevels[0])
+        
+        for (index, level) in zoomLevels.enumerated() {
+            let difference = abs(zoomFactor - level)
+            if difference < minDifference {
+                minDifference = difference
+                closestIndex = index
+            }
+        }
+        
+        // 最も近いボタンを選択
+        if closestIndex < zoomButtons.count {
+            updateZoomButtonSelection(selectedButton: zoomButtons[closestIndex])
+        }
+    }
+    
+    @objc private func zoomButtonTapped(_ sender: UIButton) {
+        let zoomLevels: [CGFloat] = [0.5, 1.0, 2.0, 3.0]
+        let selectedLevel = zoomLevels[sender.tag]
+        
+        // ズームを設定
+        setZoomLevel(selectedLevel)
+        
+        // UIを更新
+        updateZoomButtonSelection(selectedButton: sender)
+    }
+    
+    private func setZoomLevel(_ level: CGFloat) {
+        guard let device = cameraManager.getCurrentDevice() else { return }
+        
+        do {
+            try device.lockForConfiguration()
+            device.videoZoomFactor = level
+            device.unlockForConfiguration()
+            
+            zoomFactor = level
+            print("Zoom set to: \(level)x")
+        } catch {
+            print("Failed to set zoom factor: \(error)")
+        }
+    }
+    
+    private func updateZoomButtonSelection(selectedButton: UIButton) {
+        // 全てのボタンの選択状態をリセット
+        for (index, button) in zoomButtons.enumerated() {
+            button.isSelected = false
+            if index < zoomButtonBackgrounds.count {
+                let backgroundView = zoomButtonBackgrounds[index]
+                backgroundView.isHidden = true
+            }
+        }
+        
+        // 選択されたボタンをハイライト
+        selectedButton.isSelected = true
+        if let selectedIndex = zoomButtons.firstIndex(of: selectedButton),
+           selectedIndex < zoomButtonBackgrounds.count {
+            let backgroundView = zoomButtonBackgrounds[selectedIndex]
+            backgroundView.isHidden = false
+        }
+    }
+    
     // MARK: - Animations
     
     private func animateFlashEffect() {
@@ -814,12 +983,13 @@ class CameraViewController: UIViewController {
     }
     
     private func animateCaptureButton() {
-        UIView.animate(withDuration: 0.1, animations: {
-            self.captureButton.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
+        // iOS camera style capture animation - 内円の点滅効果
+        UIView.animate(withDuration: 0.1, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
+            self.captureButton.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
         }) { _ in
-            UIView.animate(withDuration: 0.1) {
+            UIView.animate(withDuration: 0.15, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
                 self.captureButton.transform = .identity
-            }
+            })
         }
     }
     
@@ -938,6 +1108,12 @@ extension CameraViewController: CameraManagerDelegate {
     func cameraManagerDidStopRunning(_ manager: CameraManager) {
         // カメラ停止時の処理
         print("CameraViewController: Camera stopped running")
+        
+        DispatchQueue.main.async {
+            // 露出情報の更新を停止
+            self.dateTimeTimer?.invalidate()
+            self.dateTimeTimer = nil
+        }
     }
 }
 
@@ -999,7 +1175,7 @@ extension CameraViewController {
         for (index, button) in modeButtons.enumerated() {
             let isSelected = (EraMode.allCases[index] == currentMode)
             button.isSelected = isSelected
-            button.setTitleColor(isSelected ? .white : .white.withAlphaComponent(0.6), for: .normal)
+            button.setTitleColor(isSelected ? .systemYellow : .white.withAlphaComponent(0.6), for: .normal)
             button.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: isSelected ? .semibold : .medium)
             
             // Update background view using array reference
@@ -1024,6 +1200,7 @@ extension CameraViewController {
             return
         }
         
+        // NaN/Inf チェックを追加
         let shutterSpeed = formatShutterSpeed(device.exposureDuration)
         let aperture = formatAperture(device.lensAperture)
         let iso = formatISO(device.iso)
@@ -1037,19 +1214,40 @@ extension CameraViewController {
     
     private func formatShutterSpeed(_ duration: CMTime) -> String {
         let seconds = CMTimeGetSeconds(duration)
+        
+        // NaN/Inf チェック
+        guard seconds.isFinite && seconds > 0 else {
+            return "1/60s" // デフォルト値
+        }
+        
         if seconds >= 1 {
             return String(format: "%.0fs", seconds)
         } else {
             let denominator = Int(1.0 / seconds)
-            return "1/\(denominator)s"
+            // 分母が有効な範囲内かチェック
+            if denominator > 0 && denominator < 10000 {
+                return "1/\(denominator)s"
+            } else {
+                return "1/60s" // デフォルト値
+            }
         }
     }
     
     private func formatAperture(_ aperture: Float) -> String {
+        // NaN/Inf チェック
+        guard aperture.isFinite && aperture > 0 else {
+            return "f/2.8" // デフォルト値
+        }
+        
         return String(format: "f/%.1f", aperture)
     }
     
     private func formatISO(_ iso: Float) -> String {
+        // NaN/Inf チェック
+        guard iso.isFinite && iso > 0 else {
+            return "ISO 400" // デフォルト値
+        }
+        
         return String(format: "ISO %.0f", iso)
     }
 }
