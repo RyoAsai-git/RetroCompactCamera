@@ -9,7 +9,9 @@ class PhotoDetailViewController: UIViewController {
     private var imageView: UIImageView!
     private var exifTableView: UITableView!
     private var closeButton: UIButton!
-    private var exifToggleButton: UIButton!
+    private var bottomToolbar: UIView!
+    private var shareButton: UIButton!
+    private var deleteButton: UIButton!
     
     // MARK: - Properties
     
@@ -56,11 +58,29 @@ class PhotoDetailViewController: UIViewController {
         closeButton.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
         view.addSubview(closeButton)
         
-        // EXIF Toggle Button
-        exifToggleButton = UIButton(type: .system)
-        exifToggleButton.translatesAutoresizingMaskIntoConstraints = false
-        exifToggleButton.addTarget(self, action: #selector(exifToggleButtonTapped), for: .touchUpInside)
-        view.addSubview(exifToggleButton)
+        
+        // Bottom Toolbar
+        bottomToolbar = UIView()
+        bottomToolbar.backgroundColor = UIColor.black.withAlphaComponent(0.8)
+        bottomToolbar.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(bottomToolbar)
+        
+        // Share Button
+        shareButton = UIButton(type: .system)
+        shareButton.setImage(UIImage(systemName: "square.and.arrow.up"), for: .normal)
+        shareButton.tintColor = .white
+        shareButton.addTarget(self, action: #selector(shareButtonTapped), for: .touchUpInside)
+        shareButton.translatesAutoresizingMaskIntoConstraints = false
+        bottomToolbar.addSubview(shareButton)
+        
+        // Delete Button
+        deleteButton = UIButton(type: .system)
+        deleteButton.setImage(UIImage(systemName: "trash"), for: .normal)
+        deleteButton.tintColor = .systemRed
+        deleteButton.addTarget(self, action: #selector(deleteButtonTapped), for: .touchUpInside)
+        deleteButton.translatesAutoresizingMaskIntoConstraints = false
+        bottomToolbar.addSubview(deleteButton)
+        
         
         // Constraints
         NSLayoutConstraint.activate([
@@ -86,10 +106,25 @@ class PhotoDetailViewController: UIViewController {
             closeButton.widthAnchor.constraint(equalToConstant: 40),
             closeButton.heightAnchor.constraint(equalToConstant: 40),
             
-            exifToggleButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-            exifToggleButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            exifToggleButton.widthAnchor.constraint(equalToConstant: 60),
-            exifToggleButton.heightAnchor.constraint(equalToConstant: 30)
+            
+            // Bottom Toolbar
+            bottomToolbar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            bottomToolbar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bottomToolbar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomToolbar.heightAnchor.constraint(equalToConstant: 80),
+            
+            // Share Button
+            shareButton.centerYAnchor.constraint(equalTo: bottomToolbar.centerYAnchor),
+            shareButton.leadingAnchor.constraint(equalTo: bottomToolbar.leadingAnchor, constant: 20),
+            shareButton.widthAnchor.constraint(equalToConstant: 44),
+            shareButton.heightAnchor.constraint(equalToConstant: 44),
+            
+            // Delete Button
+            deleteButton.centerYAnchor.constraint(equalTo: bottomToolbar.centerYAnchor),
+            deleteButton.trailingAnchor.constraint(equalTo: bottomToolbar.trailingAnchor, constant: -20),
+            deleteButton.widthAnchor.constraint(equalToConstant: 44),
+            deleteButton.heightAnchor.constraint(equalToConstant: 44),
+            
         ])
     }
     
@@ -103,12 +138,6 @@ class PhotoDetailViewController: UIViewController {
         closeButton.backgroundColor = UIColor.black.withAlphaComponent(0.7)
         closeButton.layer.cornerRadius = 20
         
-        // EXIF切り替えボタンの設定
-        exifToggleButton.setTitle("INFO", for: .normal)
-        exifToggleButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        exifToggleButton.setTitleColor(.white, for: .normal)
-        exifToggleButton.backgroundColor = UIColor.black.withAlphaComponent(0.7)
-        exifToggleButton.layer.cornerRadius = 15
         
         // EXIF テーブルビューを初期状態で非表示
         exifTableView.alpha = 0
@@ -152,6 +181,7 @@ class PhotoDetailViewController: UIViewController {
             }
         }
     }
+    
     
     private func loadExifData(image: UIImage?) {
         guard let image = image else { return }
@@ -201,15 +231,49 @@ class PhotoDetailViewController: UIViewController {
         dismiss(animated: true)
     }
     
-    @objc private func exifToggleButtonTapped() {
-        isExifVisible.toggle()
+    
+    @objc private func shareButtonTapped() {
+        guard let asset = asset else { return }
         
-        UIView.animate(withDuration: 0.3) {
-            self.exifTableView.alpha = self.isExifVisible ? 1.0 : 0.0
+        let options = PHImageRequestOptions()
+        options.isSynchronous = true
+        options.deliveryMode = .highQualityFormat
+        
+        imageManager.requestImage(for: asset, targetSize: PHImageManagerMaximumSize, contentMode: .aspectFit, options: options) { [weak self] image, _ in
+            guard let image = image else { return }
+            
+            DispatchQueue.main.async {
+                let activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+                self?.present(activityVC, animated: true)
+            }
         }
+    }
+    
+    @objc private func deleteButtonTapped() {
+        guard let asset = asset else { return }
         
-        let title = isExifVisible ? "HIDE" : "INFO"
-        exifToggleButton.setTitle(title, for: .normal)
+        let alert = UIAlertController(title: "写真を削除", message: "この写真を削除しますか？", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "キャンセル", style: .cancel))
+        alert.addAction(UIAlertAction(title: "削除", style: .destructive) { [weak self] _ in
+            self?.deletePhoto()
+        })
+        present(alert, animated: true)
+    }
+    
+    private func deletePhoto() {
+        guard let asset = asset else { return }
+        
+        PHPhotoLibrary.shared().performChanges({
+            PHAssetChangeRequest.deleteAssets([asset] as NSArray)
+        }) { [weak self] success, error in
+            DispatchQueue.main.async {
+                if success {
+                    self?.dismiss(animated: true)
+                } else {
+                    print("Failed to delete photo: \(error?.localizedDescription ?? "Unknown error")")
+                }
+            }
+        }
     }
 }
 
@@ -262,3 +326,4 @@ extension PhotoDetailViewController: UITableViewDelegate {
         return 44
     }
 }
+

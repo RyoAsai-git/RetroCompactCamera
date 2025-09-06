@@ -20,10 +20,10 @@ class CameraManager: NSObject {
     private var videoDeviceInput: AVCaptureDeviceInput?
     private let sessionQueue = DispatchQueue(label: "camera.session.queue")
     
-    var previewLayer: AVCaptureVideoPreviewLayer {
-        let layer = AVCaptureVideoPreviewLayer(session: captureSession)
-        layer.videoGravity = .resizeAspectFill
-        return layer
+    private var _previewLayer: AVCaptureVideoPreviewLayer?
+    
+    var previewLayer: AVCaptureVideoPreviewLayer? {
+        return _previewLayer
     }
     
     private(set) var isSessionRunning = false
@@ -126,6 +126,11 @@ class CameraManager: NSObject {
         
         captureSession.commitConfiguration()
         print("CameraManager: Session configuration completed successfully")
+        
+        // Preview layerの初期化
+        _previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
+        _previewLayer?.videoGravity = .resizeAspectFill
+        print("CameraManager: Preview layer initialized")
     }
     
     // MARK: - Session Control
@@ -178,6 +183,10 @@ class CameraManager: NSObject {
     // MARK: - Photo Capture
     
     func capturePhoto() {
+        capturePhoto(with: .auto)
+    }
+    
+    func capturePhoto(with flashMode: AVCaptureDevice.FlashMode) {
         // 現在のデバイスのフォーマットを取得
         guard let device = videoDeviceInput?.device else {
             print("No video device available for photo capture")
@@ -187,9 +196,12 @@ class CameraManager: NSObject {
         // デバイスのフォーマットを使用してPhotoSettingsを作成
         let photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
         
-        // フラッシュ設定
+        // フラッシュ設定を適用
         if device.isFlashAvailable {
-            photoSettings.flashMode = .auto
+            photoSettings.flashMode = flashMode
+            print("CameraManager: Flash mode set to \(flashMode)")
+        } else {
+            print("CameraManager: Flash not available on this device")
         }
         
         // 高解像度写真を有効化
