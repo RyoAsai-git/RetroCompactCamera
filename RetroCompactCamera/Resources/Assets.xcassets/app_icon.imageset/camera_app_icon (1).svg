@@ -1,0 +1,93 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with iOS-style rounded corners -->
+  <rect width="1024" height="1024" rx="180" ry="180" fill="url(#backgroundGradient)"/>
+  
+  <!-- Definitions for gradients and shadows -->
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8f9fa;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e9ecef;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Camera body gradient -->
+    <linearGradient id="cameraBodyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#495057;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#343a40;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Lens outer ring gradient -->
+    <linearGradient id="lensOuterGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6c757d;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#495057;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Lens inner gradient -->
+    <linearGradient id="lensInnerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1d20;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#212529;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Flash gradient -->
+    <radialGradient id="flashGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#f8f9fa;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e9ecef;stop-opacity:1" />
+    </radialGradient>
+    
+    <!-- Brand accent gradient -->
+    <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#dc3545;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c82333;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Camera body -->
+  <rect x="120" y="300" width="784" height="480" rx="60" ry="60" fill="url(#cameraBodyGradient)"/>
+  
+  <!-- Top section -->
+  <rect x="180" y="240" width="664" height="120" rx="40" ry="40" fill="url(#cameraBodyGradient)"/>
+  
+  <!-- Lens outer ring -->
+  <circle cx="512" cy="540" r="200" fill="url(#lensOuterGradient)"/>
+  
+  <!-- Lens inner black -->
+  <circle cx="512" cy="540" r="160" fill="url(#lensInnerGradient)"/>
+  
+  <!-- Lens reflection highlight -->
+  <circle cx="480" cy="510" r="40" fill="rgba(255,255,255,0.15)"/>
+  <circle cx="450" cy="480" r="15" fill="rgba(255,255,255,0.3)"/>
+  
+  <!-- Flash -->
+  <circle cx="320" cy="280" r="25" fill="url(#flashGradient)"/>
+  
+  <!-- Viewfinder -->
+  <rect x="420" y="250" width="60" height="30" rx="8" ry="8" fill="#1a1d20"/>
+  
+  <!-- Brand accent dot (Leica-inspired red dot) -->
+  <circle cx="680" cy="280" r="12" fill="url(#brandGradient)"/>
+  
+  <!-- Shutter button (on top section) -->
+  <circle cx="700" cy="280" r="18" fill="url(#cameraBodyGradient)" stroke="#6c757d" stroke-width="2"/>
+  <circle cx="700" cy="280" r="10" fill="#adb5bd"/>
+  
+  <!-- Control dial (on top section) -->
+  <circle cx="580" cy="280" r="22" fill="url(#cameraBodyGradient)" stroke="#6c757d" stroke-width="2"/>
+  
+  <!-- Dial markings -->
+  <line x1="580" y1="258" x2="580" y2="268" stroke="#adb5bd" stroke-width="2"/>
+  <line x1="602" y1="280" x2="592" y2="280" stroke="#adb5bd" stroke-width="2"/>
+  <line x1="580" y1="302" x2="580" y2="292" stroke="#adb5bd" stroke-width="2"/>
+  <line x1="558" y1="280" x2="568" y2="280" stroke="#adb5bd" stroke-width="2"/>
+  
+  <!-- Lens markings -->
+  <circle cx="512" cy="540" r="180" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  <circle cx="512" cy="540" r="140" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  
+  <!-- Camera grip texture area -->
+  <rect x="140" y="600" width="60" height="120" rx="10" ry="10" fill="rgba(0,0,0,0.2)"/>
+  
+  <!-- Subtle shadow/depth -->
+  <rect x="120" y="300" width="784" height="480" rx="60" ry="60" fill="none" stroke="rgba(0,0,0,0.1)" stroke-width="1"/>
+</svg>
