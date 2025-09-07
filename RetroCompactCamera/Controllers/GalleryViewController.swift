@@ -22,18 +22,34 @@ class GalleryViewController: UIViewController {
     private var isFullscreen: Bool = false
     private var fullscreenViewControllers: [FullscreenPhotoViewController] = []
     
+    // Interactive Dismissal
+    private var panGesture: UIPanGestureRecognizer!
+    private var backgroundView: UIView!
+    private var isDismissing = false
+    private let dismissThreshold: CGFloat = 0.5 // 画面の半分で閉じる判定
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        setupSwipeGestures()
+        setupInteractiveDismissal()
         loadPhotos()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         setupInitialState()
+    }
+    
+    // MARK: - Interface Orientation
+    
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        return .portrait
+    }
+    
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
+        return .portrait
     }
     
     // MARK: - Setup Methods
@@ -177,33 +193,78 @@ class GalleryViewController: UIViewController {
         bottomToolbar.isHidden = false
     }
     
-    private func setupSwipeGestures() {
-        // 下から上スワイプ
-        let swipeUpGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeUp))
-        swipeUpGesture.direction = .up
-        view.addGestureRecognizer(swipeUpGesture)
+    private func setupInteractiveDismissal() {
+        // パンジェスチャーを追加（左右のスワイプを検知）
+        panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        view.addGestureRecognizer(panGesture)
         
-        // 左スワイプ
-        let swipeLeftGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeLeft))
-        swipeLeftGesture.direction = .left
-        view.addGestureRecognizer(swipeLeftGesture)
+        // 背景ビューを作成（カメラ画面を表示するため）
+        backgroundView = UIView()
+        backgroundView.backgroundColor = .black
+        backgroundView.alpha = 0
+        view.insertSubview(backgroundView, at: 0)
+        backgroundView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            backgroundView.topAnchor.constraint(equalTo: view.topAnchor),
+            backgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            backgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            backgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
+    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+        let translation = gesture.translation(in: view)
+        let velocity = gesture.velocity(in: view)
         
-        // 右スワイプ
-        let swipeRightGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeRight))
-        swipeRightGesture.direction = .right
-        view.addGestureRecognizer(swipeRightGesture)
-    }
-    
-    @objc private func handleSwipeUp() {
-        dismiss(animated: true)
-    }
-    
-    @objc private func handleSwipeLeft() {
-        dismiss(animated: true)
-    }
-    
-    @objc private func handleSwipeRight() {
-        dismiss(animated: true)
+        switch gesture.state {
+        case .began:
+            isDismissing = true
+            // カメラ画面を下から上にスライドイン開始
+            backgroundView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
+            backgroundView.alpha = 1.0
+            
+        case .changed:
+            // スワイプ距離に応じてアニメーション
+            let progress = min(abs(translation.x) / view.bounds.width, 1.0)
+            
+            // 現在の画面の透明度を変化
+            view.alpha = 1.0 - (progress * 0.7)
+            
+            // 前の画面（カメラ）を下から上にスライド
+            let backgroundTranslation = max(0, view.bounds.height - (abs(translation.x) * 2))
+            backgroundView.transform = CGAffineTransform(translationX: 0, y: backgroundTranslation)
+            
+            // 角丸の変化
+            let cornerRadius = progress * 20
+            backgroundView.layer.cornerRadius = cornerRadius
+            
+        case .ended, .cancelled:
+            let progress = min(abs(translation.x) / view.bounds.width, 1.0)
+            let shouldDismiss = progress > dismissThreshold || abs(velocity.x) > 500
+            
+            if shouldDismiss {
+                // 完全に閉じる
+                UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
+                    self.view.alpha = 0
+                    self.backgroundView.transform = .identity
+                    self.backgroundView.layer.cornerRadius = 0
+                }) { _ in
+                    self.dismiss(animated: false)
+                }
+            } else {
+                // 元の位置に戻る
+                UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
+                    self.view.alpha = 1.0
+                    self.backgroundView.transform = CGAffineTransform(translationX: 0, y: self.view.bounds.height)
+                    self.backgroundView.layer.cornerRadius = 0
+                }) { _ in
+                    self.isDismissing = false
+                }
+            }
+            
+        default:
+            break
+        }
     }
     
     private func loadPhotos() {
@@ -259,6 +320,8 @@ class GalleryViewController: UIViewController {
     
     private func showPhotoDetail(at index: Int) {
         let photoDetailVC = PhotoDetailViewController()
+        photoDetailVC.photos = photos
+        photoDetailVC.currentIndex = index
         photoDetailVC.asset = photos[index]
         photoDetailVC.modalPresentationStyle = .fullScreen
         present(photoDetailVC, animated: true)
@@ -534,13 +597,29 @@ class AllPhotosViewController: UIViewController {
     private let imageManager = PHImageManager.default()
     private let cellIdentifier = "PhotoCell"
     
+    // Interactive Dismissal
+    private var panGesture: UIPanGestureRecognizer!
+    private var backgroundView: UIView!
+    private var isDismissing = false
+    private let dismissThreshold: CGFloat = 0.5 // 画面の半分で閉じる判定
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        setupSwipeGestures()
+        setupInteractiveDismissal()
         loadAllPhotos()
+    }
+    
+    // MARK: - Interface Orientation
+    
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        return .portrait
+    }
+    
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
+        return .portrait
     }
     
     // MARK: - Setup Methods
@@ -625,33 +704,78 @@ class AllPhotosViewController: UIViewController {
         ])
     }
     
-    private func setupSwipeGestures() {
-        // 下から上スワイプ
-        let swipeUpGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeUp))
-        swipeUpGesture.direction = .up
-        view.addGestureRecognizer(swipeUpGesture)
+    private func setupInteractiveDismissal() {
+        // パンジェスチャーを追加（左右のスワイプを検知）
+        panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        view.addGestureRecognizer(panGesture)
         
-        // 左スワイプ
-        let swipeLeftGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeLeft))
-        swipeLeftGesture.direction = .left
-        view.addGestureRecognizer(swipeLeftGesture)
+        // 背景ビューを作成（カメラ画面を表示するため）
+        backgroundView = UIView()
+        backgroundView.backgroundColor = .black
+        backgroundView.alpha = 0
+        view.insertSubview(backgroundView, at: 0)
+        backgroundView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            backgroundView.topAnchor.constraint(equalTo: view.topAnchor),
+            backgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            backgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            backgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
+    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+        let translation = gesture.translation(in: view)
+        let velocity = gesture.velocity(in: view)
         
-        // 右スワイプ
-        let swipeRightGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeRight))
-        swipeRightGesture.direction = .right
-        view.addGestureRecognizer(swipeRightGesture)
-    }
-    
-    @objc private func handleSwipeUp() {
-        dismiss(animated: true)
-    }
-    
-    @objc private func handleSwipeLeft() {
-        dismiss(animated: true)
-    }
-    
-    @objc private func handleSwipeRight() {
-        dismiss(animated: true)
+        switch gesture.state {
+        case .began:
+            isDismissing = true
+            // カメラ画面を下から上にスライドイン開始
+            backgroundView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
+            backgroundView.alpha = 1.0
+            
+        case .changed:
+            // スワイプ距離に応じてアニメーション
+            let progress = min(abs(translation.x) / view.bounds.width, 1.0)
+            
+            // 現在の画面の透明度を変化
+            view.alpha = 1.0 - (progress * 0.7)
+            
+            // 前の画面（カメラ）を下から上にスライド
+            let backgroundTranslation = max(0, view.bounds.height - (abs(translation.x) * 2))
+            backgroundView.transform = CGAffineTransform(translationX: 0, y: backgroundTranslation)
+            
+            // 角丸の変化
+            let cornerRadius = progress * 20
+            backgroundView.layer.cornerRadius = cornerRadius
+            
+        case .ended, .cancelled:
+            let progress = min(abs(translation.x) / view.bounds.width, 1.0)
+            let shouldDismiss = progress > dismissThreshold || abs(velocity.x) > 500
+            
+            if shouldDismiss {
+                // 完全に閉じる
+                UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
+                    self.view.alpha = 0
+                    self.backgroundView.transform = .identity
+                    self.backgroundView.layer.cornerRadius = 0
+                }) { _ in
+                    self.dismiss(animated: false)
+                }
+            } else {
+                // 元の位置に戻る
+                UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
+                    self.view.alpha = 1.0
+                    self.backgroundView.transform = CGAffineTransform(translationX: 0, y: self.view.bounds.height)
+                    self.backgroundView.layer.cornerRadius = 0
+                }) { _ in
+                    self.isDismissing = false
+                }
+            }
+            
+        default:
+            break
+        }
     }
     
     private func loadAllPhotos() {
@@ -683,6 +807,8 @@ class AllPhotosViewController: UIViewController {
     
     private func showPhotoDetail(at index: Int) {
         let photoDetailVC = PhotoDetailViewController()
+        photoDetailVC.photos = photos
+        photoDetailVC.currentIndex = index
         photoDetailVC.asset = photos[index]
         photoDetailVC.modalPresentationStyle = UIModalPresentationStyle.fullScreen
         present(photoDetailVC, animated: true)

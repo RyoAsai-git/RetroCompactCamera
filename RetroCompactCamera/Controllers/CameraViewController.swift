@@ -1,7 +1,6 @@
 import UIKit
 import AVFoundation
 import Photos
-import AudioToolbox
 import CoreMedia
 
 class CameraViewController: UIViewController {
@@ -126,6 +125,16 @@ class CameraViewController: UIViewController {
     
     deinit {
         dateTimeTimer?.invalidate()
+    }
+    
+    // MARK: - Interface Orientation
+    
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        return .portrait
+    }
+    
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
+        return .portrait
     }
     
     // MARK: - Setup Methods
@@ -828,7 +837,6 @@ class CameraViewController: UIViewController {
     }
     
     private func performPhotoCapture() {
-        
         // フラッシュ効果
         animateFlashEffect()
         
@@ -1382,8 +1390,8 @@ class CameraViewController: UIViewController {
 extension CameraViewController: CameraManagerDelegate {
     
     func cameraManager(_ manager: CameraManager, didCapturePhoto image: UIImage) {
-        // シャッター音を再生（iOS標準音）
-        AudioServicesPlaySystemSound(1108)
+        // iOSのAVCapturePhotoOutputが自動的にシャッター音を再生するため、
+        // 手動でシャッター音を実装する必要はありません
         
         // 年代別エフェクトを適用
         if let processedImage = imageProcessor.processImage(image, with: currentMode) {

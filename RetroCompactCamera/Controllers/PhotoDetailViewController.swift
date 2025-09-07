@@ -16,9 +16,21 @@ class PhotoDetailViewController: UIViewController {
     // MARK: - Properties
     
     var asset: PHAsset?
+    var photos: [PHAsset] = []
+    var currentIndex: Int = 0
     private let imageManager = PHImageManager.default()
     private var exifData: [(String, String)] = []
     private var isExifVisible = false
+    
+    // Interactive Dismissal
+    private var panGesture: UIPanGestureRecognizer!
+    private var backgroundView: UIView!
+    private var isDismissing = false
+    private let dismissThreshold: CGFloat = 0.5 // 画面の半分で閉じる判定
+    
+    // Photo Navigation
+    private var leftSwipeGesture: UISwipeGestureRecognizer!
+    private var rightSwipeGesture: UISwipeGestureRecognizer!
     
     // MARK: - Lifecycle
     
@@ -28,7 +40,19 @@ class PhotoDetailViewController: UIViewController {
         setupUI()
         setupScrollView()
         setupTableView()
+        setupInteractiveDismissal()
+        setupPhotoNavigation()
         loadImage()
+    }
+    
+    // MARK: - Interface Orientation
+    
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        return .portrait
+    }
+    
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
+        return .portrait
     }
     
     // MARK: - Setup Methods
@@ -162,6 +186,155 @@ class PhotoDetailViewController: UIViewController {
         exifTableView.register(UITableViewCell.self, forCellReuseIdentifier: "ExifCell")
         exifTableView.layer.cornerRadius = 10
         exifTableView.layer.masksToBounds = true
+    }
+    
+    private func setupInteractiveDismissal() {
+        // パンジェスチャーを追加（上下のスワイプを検知）
+        panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        panGesture.delaysTouchesBegan = false
+        view.addGestureRecognizer(panGesture)
+        
+        // 背景ビューを作成（一覧画面を表示するため）
+        backgroundView = UIView()
+        backgroundView.backgroundColor = .black
+        backgroundView.alpha = 0
+        view.insertSubview(backgroundView, at: 0)
+        backgroundView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            backgroundView.topAnchor.constraint(equalTo: view.topAnchor),
+            backgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            backgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            backgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
+    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+        let translation = gesture.translation(in: view)
+        let velocity = gesture.velocity(in: view)
+        
+        // 上下のスワイプのみを検知（左右は無視）
+        // より厳密な条件で左右スワイプを除外
+        guard abs(translation.y) > abs(translation.x) * 2 else { return }
+        
+        switch gesture.state {
+        case .began:
+            isDismissing = true
+            // 一覧画面を下から上にスライドイン開始
+            backgroundView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
+            backgroundView.alpha = 1.0
+            
+        case .changed:
+            // スワイプ距離に応じてアニメーション
+            let progress = min(abs(translation.y) / view.bounds.height, 1.0)
+            
+            // 現在の画面の透明度を変化
+            view.alpha = 1.0 - (progress * 0.7)
+            
+            // 前の画面（一覧）を下から上にスライド
+            let backgroundTranslation = max(0, view.bounds.height - (abs(translation.y) * 2))
+            backgroundView.transform = CGAffineTransform(translationX: 0, y: backgroundTranslation)
+            
+            // 角丸の変化
+            let cornerRadius = progress * 20
+            backgroundView.layer.cornerRadius = cornerRadius
+            
+        case .ended, .cancelled:
+            let progress = min(abs(translation.y) / view.bounds.height, 1.0)
+            let shouldDismiss = progress > dismissThreshold || abs(velocity.y) > 500
+            
+            if shouldDismiss {
+                // 完全に閉じる
+                UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
+                    self.view.alpha = 0
+                    self.backgroundView.transform = .identity
+                    self.backgroundView.layer.cornerRadius = 0
+                }) { _ in
+                    self.dismiss(animated: false)
+                }
+            } else {
+                // 元の位置に戻る
+                UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
+                    self.view.alpha = 1.0
+                    self.backgroundView.transform = CGAffineTransform(translationX: 0, y: self.view.bounds.height)
+                    self.backgroundView.layer.cornerRadius = 0
+                }) { _ in
+                    self.isDismissing = false
+                }
+            }
+            
+        default:
+            break
+        }
+    }
+    
+    private func setupPhotoNavigation() {
+        // 左スワイプ（次の写真）
+        leftSwipeGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleLeftSwipe))
+        leftSwipeGesture.direction = .left
+        leftSwipeGesture.delaysTouchesBegan = false
+        view.addGestureRecognizer(leftSwipeGesture)
+        
+        // 右スワイプ（前の写真）
+        rightSwipeGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleRightSwipe))
+        rightSwipeGesture.direction = .right
+        rightSwipeGesture.delaysTouchesBegan = false
+        view.addGestureRecognizer(rightSwipeGesture)
+        
+        // パンジェスチャーとスワイプジェスチャーの競合を解決
+        panGesture.require(toFail: leftSwipeGesture)
+        panGesture.require(toFail: rightSwipeGesture)
+    }
+    
+    @objc private func handleLeftSwipe() {
+        print("PhotoDetailViewController: Left swipe detected")
+        // 次の写真に移動
+        if currentIndex < photos.count - 1 {
+            currentIndex += 1
+            print("PhotoDetailViewController: Moving to next photo at index \(currentIndex)")
+            loadPhoto(at: currentIndex)
+        } else {
+            print("PhotoDetailViewController: Already at last photo")
+        }
+    }
+    
+    @objc private func handleRightSwipe() {
+        print("PhotoDetailViewController: Right swipe detected")
+        // 前の写真に移動
+        if currentIndex > 0 {
+            currentIndex -= 1
+            print("PhotoDetailViewController: Moving to previous photo at index \(currentIndex)")
+            loadPhoto(at: currentIndex)
+        } else {
+            print("PhotoDetailViewController: Already at first photo")
+        }
+    }
+    
+    private func loadPhoto(at index: Int) {
+        guard index >= 0 && index < photos.count else { return }
+        
+        let photo = photos[index]
+        asset = photo
+        
+        // 画像を読み込み
+        let targetSize = CGSize(width: view.frame.width * UIScreen.main.scale, 
+                               height: view.frame.height * UIScreen.main.scale)
+        
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .highQualityFormat
+        options.isNetworkAccessAllowed = true
+        
+        imageManager.requestImage(for: photo, targetSize: targetSize, contentMode: .aspectFit, options: options) { [weak self] image, info in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                
+                // 滑らかなアニメーションで画像を切り替え
+                UIView.transition(with: self.imageView, duration: 0.3, options: [.transitionCrossDissolve, .allowUserInteraction], animations: {
+                    self.imageView.image = image
+                }, completion: nil)
+                
+                self.loadExifData(image: image)
+            }
+        }
     }
     
     private func loadImage() {
