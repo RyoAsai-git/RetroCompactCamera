@@ -5,6 +5,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        
+        // Daemonエラーを防ぐための設定
+        if #available(iOS 13.0, *) {
+            // iOS 13以降ではSceneDelegateを使用
+        } else {
+            // iOS 12以前ではAppDelegateでウィンドウを設定
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                let window = UIWindow(windowScene: windowScene)
+                window.makeKeyAndVisible()
+            }
+        }
+        
         return true
     }
 

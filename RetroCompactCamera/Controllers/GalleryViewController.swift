@@ -27,6 +27,7 @@ class GalleryViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        setupSwipeGestures()
         loadPhotos()
     }
     
@@ -64,7 +65,7 @@ class GalleryViewController: UIViewController {
         
         // Title Label
         titleLabel = UILabel()
-        titleLabel.text = "すべての写真"
+        titleLabel.text = "最近撮った写真"
         titleLabel.textColor = .white
         titleLabel.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
         titleLabel.textAlignment = .center
@@ -174,6 +175,35 @@ class GalleryViewController: UIViewController {
     private func setupInitialState() {
         // 初期状態ではボトムツールバーを表示
         bottomToolbar.isHidden = false
+    }
+    
+    private func setupSwipeGestures() {
+        // 下から上スワイプ
+        let swipeUpGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeUp))
+        swipeUpGesture.direction = .up
+        view.addGestureRecognizer(swipeUpGesture)
+        
+        // 左スワイプ
+        let swipeLeftGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeLeft))
+        swipeLeftGesture.direction = .left
+        view.addGestureRecognizer(swipeLeftGesture)
+        
+        // 右スワイプ
+        let swipeRightGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeRight))
+        swipeRightGesture.direction = .right
+        view.addGestureRecognizer(swipeRightGesture)
+    }
+    
+    @objc private func handleSwipeUp() {
+        dismiss(animated: true)
+    }
+    
+    @objc private func handleSwipeLeft() {
+        dismiss(animated: true)
+    }
+    
+    @objc private func handleSwipeRight() {
+        dismiss(animated: true)
     }
     
     private func loadPhotos() {
@@ -509,6 +539,7 @@ class AllPhotosViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        setupSwipeGestures()
         loadAllPhotos()
     }
     
@@ -539,7 +570,7 @@ class AllPhotosViewController: UIViewController {
         
         // Title Label
         titleLabel = UILabel()
-        titleLabel.text = "すべての写真"
+        titleLabel.text = "写真一覧"
         titleLabel.textColor = .white
         titleLabel.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
         titleLabel.textAlignment = .center
@@ -594,6 +625,35 @@ class AllPhotosViewController: UIViewController {
         ])
     }
     
+    private func setupSwipeGestures() {
+        // 下から上スワイプ
+        let swipeUpGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeUp))
+        swipeUpGesture.direction = .up
+        view.addGestureRecognizer(swipeUpGesture)
+        
+        // 左スワイプ
+        let swipeLeftGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeLeft))
+        swipeLeftGesture.direction = .left
+        view.addGestureRecognizer(swipeLeftGesture)
+        
+        // 右スワイプ
+        let swipeRightGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeRight))
+        swipeRightGesture.direction = .right
+        view.addGestureRecognizer(swipeRightGesture)
+    }
+    
+    @objc private func handleSwipeUp() {
+        dismiss(animated: true)
+    }
+    
+    @objc private func handleSwipeLeft() {
+        dismiss(animated: true)
+    }
+    
+    @objc private func handleSwipeRight() {
+        dismiss(animated: true)
+    }
+    
     private func loadAllPhotos() {
         PHPhotoLibrary.requestAuthorization { [weak self] status in
             guard status == .authorized else { return }
@@ -620,7 +680,6 @@ class AllPhotosViewController: UIViewController {
     @objc private func backButtonTapped() {
         dismiss(animated: true)
     }
-    
     
     private func showPhotoDetail(at index: Int) {
         let photoDetailVC = PhotoDetailViewController()

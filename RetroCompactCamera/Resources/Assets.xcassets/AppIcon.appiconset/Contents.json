@@ -11,31 +11,37 @@
       "size" : "20x20"
     },
     {
+      "filename" : "camera_app_icon (1) 1.png",
       "idiom" : "iphone",
       "scale" : "2x",
       "size" : "29x29"
     },
     {
+      "filename" : "camera_app_icon (2).png",
       "idiom" : "iphone",
       "scale" : "3x",
       "size" : "29x29"
     },
     {
+      "filename" : "camera_app_icon_80*80.png",
       "idiom" : "iphone",
       "scale" : "2x",
       "size" : "40x40"
     },
     {
+      "filename" : "camera_app_icon_120*120.png",
       "idiom" : "iphone",
       "scale" : "3x",
       "size" : "40x40"
     },
     {
+      "filename" : "camera_app_icon (1) (1).png",
       "idiom" : "iphone",
       "scale" : "2x",
       "size" : "60x60"
     },
     {
+      "filename" : "camera_app_icon (1).png",
       "idiom" : "iphone",
       "scale" : "3x",
       "size" : "60x60"
@@ -51,21 +57,25 @@
       "size" : "20x20"
     },
     {
+      "filename" : "camera_app_icon_29*29.png",
       "idiom" : "ipad",
       "scale" : "1x",
       "size" : "29x29"
     },
     {
+      "filename" : "camera_app_icon_58*58.png",
       "idiom" : "ipad",
       "scale" : "2x",
       "size" : "29x29"
     },
     {
+      "filename" : "camera_app_icon_40*40.png",
       "idiom" : "ipad",
       "scale" : "1x",
       "size" : "40x40"
     },
     {
+      "filename" : "camera_app_icon_80*80 1.png",
       "idiom" : "ipad",
       "scale" : "2x",
       "size" : "40x40"
@@ -81,6 +91,7 @@
       "size" : "83.5x83.5"
     },
     {
+      "filename" : "camera_app_icon.png",
       "idiom" : "ios-marketing",
       "scale" : "1x",
       "size" : "1024x1024"
