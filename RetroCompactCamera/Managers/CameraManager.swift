@@ -108,6 +108,12 @@ class CameraManager: NSObject {
             photoOutput.isHighResolutionCaptureEnabled = true
             photoOutput.maxPhotoQualityPrioritization = .quality
             
+            // 自動シャッター音を無効化（重複を防ぐため）
+            photoOutput.isLivePhotoCaptureEnabled = false
+            
+            // セッションの音声設定を無効化してシステムの自動シャッター音を防ぐ
+            captureSession.automaticallyConfiguresApplicationAudioSession = false
+            
             // サポートされているフォーマットを確認
             if photoOutput.availablePhotoCodecTypes.contains(.jpeg) {
                 print("CameraManager: JPEG codec is available")
@@ -206,6 +212,9 @@ class CameraManager: NSObject {
         
         // 高解像度写真を有効化
         photoSettings.isHighResolutionPhotoEnabled = true
+        
+        // シャッター音を無効化（CameraViewControllerで制御するため）
+        photoSettings.isAutoStillImageStabilizationEnabled = false
         
         // プレビュー写真の設定
         if let previewPhotoPixelFormatType = photoSettings.availablePreviewPhotoPixelFormatTypes.first {
@@ -387,6 +396,9 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
     
     func photoOutput(_ output: AVCapturePhotoOutput, willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
         print("CameraManager: Photo capture in progress")
+        
+        // iOSのAVCapturePhotoOutputが自動的にシャッター音を再生するため、
+        // 手動でシャッター音を実装する必要はありません
     }
     
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {

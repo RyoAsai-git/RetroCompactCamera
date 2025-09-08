@@ -1,0 +1,65 @@
+# Xcode
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+*.xcworkspace/xcuserdata/
+*.xcworkspace/xcshareddata/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# CocoaPods
+Pods/
+*.xcworkspace
+!default.xcworkspace
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# Firebase & AdMob
+GoogleService-Info.plist
+GoogleService-Info-*.plist
+
+# 機密情報
+Config.plist
+Secrets.plist
+APIKeys.plist
+
+# システムファイル
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 開発環境
+*.xcuserstate
+UserInterfaceState.xcuserstate
+
+# ビルド成果物
+build/
+*.app
+*.ipa
+*.dSYM
+
+# ログファイル
+*.log
+
+# 一時ファイル
+*.tmp
+*.temp
+
+# エディタ設定
+.vscode/
+.idea/
+
+# その他
+*.swp
+*.swo
+*~
