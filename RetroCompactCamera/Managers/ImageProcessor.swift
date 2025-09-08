@@ -189,11 +189,12 @@ class ImageProcessor {
             // 元の画像を描画
             image.draw(in: CGRect(origin: .zero, size: image.size))
             
-            // 日付を右下角に描画
-            let margin: CGFloat = 20
+            // 日付を右下角に描画（仕様書に基づくマージン: 2-3%）
+            let marginX = image.size.width * 0.025 // 右端から2.5%
+            let marginY = image.size.height * 0.025 // 下端から2.5%
             let dateSize = dateImage.size
-            let x = image.size.width - dateSize.width - margin
-            let y = image.size.height - dateSize.height - margin
+            let x = image.size.width - dateSize.width - marginX
+            let y = image.size.height - dateSize.height - marginY
             
             dateImage.draw(in: CGRect(x: x, y: y, width: dateSize.width, height: dateSize.height))
         }
@@ -234,23 +235,28 @@ class ImageProcessor {
     }
     
     private func createDateTextImage(text: String, size: CGSize) -> UIImage? {
-        // 参考画像に合わせて小さなフォントサイズに調整
-        let fontSize = min(size.width, size.height) * 0.015 // 画面サイズの1.5%に縮小
-        let font = UIFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .medium)
+        // 日時表示に合わせてフォントサイズを調整（写真高さの3%）
+        let fontSize = size.height * 0.03 // 写真高さの3%
+        let font = UIFont.systemFont(ofSize: fontSize, weight: .bold) // ゴシック体Bold
+        
+        // 縁取りの幅（1-2px）
+        let outlineWidth: CGFloat = 1.5
+        
+        // 指定されたくすんだ黄色（#E1C241）
+        let customYellow = UIColor(red: 225/255.0, green: 194/255.0, blue: 65/255.0, alpha: 1.0)
         
         // テキストのサイズを計算
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: UIColor.white
+            .foregroundColor: customYellow // 指定されたくすんだ黄色
         ]
         
         let textSize = text.size(withAttributes: attributes)
         
-        // 影効果のための余白を追加（重なりを防ぐため適切なサイズに）
-        let shadowOffset: CGFloat = 1
+        // 縁取りのための余白を追加
         let imageSize = CGSize(
-            width: textSize.width + shadowOffset * 2,
-            height: textSize.height + shadowOffset * 2
+            width: textSize.width + outlineWidth * 2,
+            height: textSize.height + outlineWidth * 2
         )
         
         // 画像を生成
@@ -261,31 +267,33 @@ class ImageProcessor {
             // 背景を透明にする
             cgContext.clear(CGRect(origin: .zero, size: imageSize))
             
-            // 影を描画（暗い色で視認性を向上）
-            let shadowColor = UIColor.black.withAlphaComponent(0.6)
-            let shadowAttributes: [NSAttributedString.Key: Any] = [
+            // 縁取りを描画（黒色）
+            let outlineColor = UIColor.black
+            let outlineAttributes: [NSAttributedString.Key: Any] = [
                 .font: font,
-                .foregroundColor: shadowColor
+                .foregroundColor: outlineColor,
+                .strokeWidth: outlineWidth * 2, // 縁取りの幅
+                .strokeColor: outlineColor
             ]
             
-            let shadowRect = CGRect(
-                x: shadowOffset,
-                y: shadowOffset,
+            let outlineRect = CGRect(
+                x: outlineWidth,
+                y: outlineWidth,
                 width: textSize.width,
                 height: textSize.height
             )
-            text.draw(in: shadowRect, withAttributes: shadowAttributes)
+            text.draw(in: outlineRect, withAttributes: outlineAttributes)
             
-            // メインテキストを描画（白で視認性を向上）
-            let mainColor = UIColor.white
+            // メインテキストを描画（指定されたくすんだ黄色）
+            let mainColor = customYellow
             let mainAttributes: [NSAttributedString.Key: Any] = [
                 .font: font,
                 .foregroundColor: mainColor
             ]
             
             let mainRect = CGRect(
-                x: 0,
-                y: 0,
+                x: outlineWidth,
+                y: outlineWidth,
                 width: textSize.width,
                 height: textSize.height
             )
