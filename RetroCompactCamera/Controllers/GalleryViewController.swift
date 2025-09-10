@@ -1,5 +1,6 @@
 import UIKit
 import Photos
+import GoogleMobileAds
 
 class GalleryViewController: UIViewController {
     
@@ -12,6 +13,7 @@ class GalleryViewController: UIViewController {
     private var backButton: UIButton!
     private var titleLabel: UILabel!
     private var allPhotosButton: UIButton!
+    private var bannerAdView: BannerAdView!
     
     // MARK: - Properties
     
@@ -42,6 +44,12 @@ class GalleryViewController: UIViewController {
         setupInitialState()
     }
     
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // バナー広告を読み込み
+        bannerAdView.loadAd()
+    }
+    
     // MARK: - Interface Orientation
     
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
@@ -59,6 +67,7 @@ class GalleryViewController: UIViewController {
         
         createTopToolbar()
         createBottomToolbar()
+        createBannerAdView()
         createCollectionView()
         createPageViewController()
         setupConstraints()
@@ -103,6 +112,12 @@ class GalleryViewController: UIViewController {
         bottomToolbar.backgroundColor = UIColor.black.withAlphaComponent(0.8)
         bottomToolbar.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(bottomToolbar)
+    }
+    
+    private func createBannerAdView() {
+        bannerAdView = BannerAdView()
+        bannerAdView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(bannerAdView)
     }
     
     
@@ -166,24 +181,29 @@ class GalleryViewController: UIViewController {
             allPhotosButton.trailingAnchor.constraint(equalTo: topToolbar.trailingAnchor, constant: -16),
             allPhotosButton.centerYAnchor.constraint(equalTo: topToolbar.centerYAnchor),
             
+            // Banner Ad View
+            bannerAdView.bottomAnchor.constraint(equalTo: bottomToolbar.topAnchor),
+            bannerAdView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bannerAdView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bannerAdView.heightAnchor.constraint(equalToConstant: 50),
+            
             // Bottom Toolbar
             bottomToolbar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             bottomToolbar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bottomToolbar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             bottomToolbar.heightAnchor.constraint(equalToConstant: 80),
             
-            
             // Collection View
             collectionView.topAnchor.constraint(equalTo: topToolbar.bottomAnchor),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            collectionView.bottomAnchor.constraint(equalTo: bottomToolbar.topAnchor),
+            collectionView.bottomAnchor.constraint(equalTo: bannerAdView.topAnchor),
             
             // Page View Controller
             pageViewController.view.topAnchor.constraint(equalTo: topToolbar.bottomAnchor),
             pageViewController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             pageViewController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            pageViewController.view.bottomAnchor.constraint(equalTo: bottomToolbar.topAnchor)
+            pageViewController.view.bottomAnchor.constraint(equalTo: bannerAdView.topAnchor)
         ])
         
     }
@@ -905,6 +925,108 @@ class AllPhotosCollectionViewCell: UICollectionViewCell {
         selectionButton.isHidden = true
     }
     
+}
+
+// MARK: - BannerAdView
+
+class BannerAdView: UIView {
+    
+    // MARK: - Properties
+    
+    private var bannerView: BannerView!
+    private let adUnitID = "ca-app-pub-3940256099942544/2934735716" // テスト用広告ユニットID
+    
+    // MARK: - Initialization
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupBannerView()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupBannerView()
+    }
+    
+    // MARK: - Setup
+    
+    private func setupBannerView() {
+        // バナー広告のサイズを設定
+        bannerView = BannerView(adSize: AdSizeBanner)
+        bannerView.adUnitID = adUnitID
+        bannerView.delegate = self
+        
+        addSubview(bannerView)
+        setupConstraints()
+    }
+    
+    private func setupConstraints() {
+        bannerView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            bannerView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            bannerView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            bannerView.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 8),
+            bannerView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8)
+        ])
+    }
+    
+    // MARK: - Public Methods
+    
+    func loadAd() {
+        guard let rootViewController = findViewController() else { return }
+        
+        bannerView.rootViewController = rootViewController
+        
+        // アダプティブバナーサイズを設定
+        let bannerWidth = frame.width > 0 ? frame.width : UIScreen.main.bounds.width
+        bannerView.adSize = currentOrientationAnchoredAdaptiveBanner(width: bannerWidth)
+        
+        let request = Request()
+        if #available(iOS 13.0, *) {
+            request.scene = rootViewController.view.window?.windowScene
+        }
+        bannerView.load(request)
+    }
+    
+    private func findViewController() -> UIViewController? {
+        var responder: UIResponder? = self
+        while responder != nil {
+            if let viewController = responder as? UIViewController {
+                return viewController
+            }
+            responder = responder?.next
+        }
+        return nil
+    }
+}
+
+// MARK: - BannerViewDelegate
+
+extension BannerAdView: BannerViewDelegate {
+    
+    func bannerViewDidReceiveAd(_ bannerView: BannerView) {
+        print("バナー広告が正常に読み込まれました")
+    }
+    
+    func bannerView(_ bannerView: BannerView, didFailToReceiveAdWithError error: Error) {
+        print("バナー広告の読み込みに失敗しました: \(error.localizedDescription)")
+    }
+    
+    func bannerViewDidRecordImpression(_ bannerView: BannerView) {
+        print("バナー広告のインプレッションが記録されました")
+    }
+    
+    func bannerViewWillPresentScreen(_ bannerView: BannerView) {
+        print("バナー広告がタップされました")
+    }
+    
+    func bannerViewWillDismissScreen(_ bannerView: BannerView) {
+        print("バナー広告の画面が閉じられます")
+    }
+    
+    func bannerViewDidDismissScreen(_ bannerView: BannerView) {
+        print("バナー広告の画面が閉じられました")
+    }
 }
 
 

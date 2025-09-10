@@ -1,10 +1,16 @@
 import UIKit
+import GoogleMobileAds
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        
+        // Google Mobile Ads SDKを初期化
+        MobileAds.shared.start { _ in
+            // 初期化完了
+        }
         
         // Daemonエラーを防ぐための設定
         if #available(iOS 13.0, *) {

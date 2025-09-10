@@ -156,7 +156,6 @@
 				A0FFFFFFFEF9 /* Sources */,
 				A0FFFFFFFEFA /* Frameworks */,
 				A0FFFFFFFEFB /* Resources */,
-				571B27FD96131002F26CB90A /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -214,27 +213,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		571B27FD96131002F26CB90A /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-RetroCompactCamera/Pods-RetroCompactCamera-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			inputPaths = (
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-RetroCompactCamera/Pods-RetroCompactCamera-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-RetroCompactCamera/Pods-RetroCompactCamera-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 		A6DD9E572827C767365B5879 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
