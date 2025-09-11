@@ -181,17 +181,17 @@ class GalleryViewController: UIViewController {
             allPhotosButton.trailingAnchor.constraint(equalTo: topToolbar.trailingAnchor, constant: -16),
             allPhotosButton.centerYAnchor.constraint(equalTo: topToolbar.centerYAnchor),
             
-            // Banner Ad View
-            bannerAdView.bottomAnchor.constraint(equalTo: bottomToolbar.topAnchor),
-            bannerAdView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bannerAdView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bannerAdView.heightAnchor.constraint(equalToConstant: 50),
-            
             // Bottom Toolbar
-            bottomToolbar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            bottomToolbar.bottomAnchor.constraint(equalTo: bannerAdView.topAnchor),
             bottomToolbar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bottomToolbar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             bottomToolbar.heightAnchor.constraint(equalToConstant: 80),
+            
+            // Banner Ad View
+            bannerAdView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            bannerAdView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bannerAdView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bannerAdView.heightAnchor.constraint(equalToConstant: 50),
             
             // Collection View
             collectionView.topAnchor.constraint(equalTo: topToolbar.bottomAnchor),
