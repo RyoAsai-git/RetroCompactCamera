@@ -28,6 +28,7 @@ GoogleService-Info-*.plist
 Config.plist
 Secrets.plist
 APIKeys.plist
+AdMobConfig.plist
 
 # システムファイル
 .DS_Store

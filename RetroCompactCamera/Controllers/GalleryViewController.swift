@@ -934,7 +934,22 @@ class BannerAdView: UIView {
     // MARK: - Properties
     
     private var bannerView: BannerView!
-    private let adUnitID = "ca-app-pub-3940256099942544/2934735716" // テスト用広告ユニットID
+    private var adUnitID: String {
+        // 1. 環境変数から広告ユニットIDを取得
+        if let adUnitID = ProcessInfo.processInfo.environment["BANNER_AD_UNIT_ID"] {
+            return adUnitID
+        }
+        
+        // 2. 設定ファイルから広告ユニットIDを取得
+        if let path = Bundle.main.path(forResource: "AdMobConfig", ofType: "plist"),
+           let plist = NSDictionary(contentsOfFile: path),
+           let adUnitID = plist["BannerAdUnitID"] as? String {
+            return adUnitID
+        }
+        
+        // 3. デフォルトはテスト広告を使用
+        return "ca-app-pub-3940256099942544/2435281174"
+    }
     
     // MARK: - Initialization
     
@@ -951,8 +966,9 @@ class BannerAdView: UIView {
     // MARK: - Setup
     
     private func setupBannerView() {
-        // バナー広告のサイズを設定
-        bannerView = BannerView(adSize: AdSizeBanner)
+        // アンカーアダプティブバナー広告を作成
+        let adSize = currentOrientationAnchoredAdaptiveBanner(width: frame.width)
+        bannerView = BannerView(adSize: adSize)
         bannerView.adUnitID = adUnitID
         bannerView.delegate = self
         
@@ -977,7 +993,7 @@ class BannerAdView: UIView {
         
         bannerView.rootViewController = rootViewController
         
-        // アダプティブバナーサイズを設定
+        // アダプティブバナーサイズを再計算
         let bannerWidth = frame.width > 0 ? frame.width : UIScreen.main.bounds.width
         bannerView.adSize = currentOrientationAnchoredAdaptiveBanner(width: bannerWidth)
         
