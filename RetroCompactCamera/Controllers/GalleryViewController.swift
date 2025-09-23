@@ -942,9 +942,20 @@ class BannerAdView: UIView {
         
         // 2. 設定ファイルから広告ユニットIDを取得
         if let path = Bundle.main.path(forResource: "AdMobConfig", ofType: "plist"),
-           let plist = NSDictionary(contentsOfFile: path),
-           let adUnitID = plist["BannerAdUnitID"] as? String {
-            return adUnitID
+           let plist = NSDictionary(contentsOfFile: path) {
+            
+            // デバッグ/リリース環境を判定
+            #if DEBUG
+            // デバッグ環境ではテスト広告を使用
+            if let testAdUnitID = plist["TestBannerAdUnitID"] as? String {
+                return testAdUnitID
+            }
+            #else
+            // リリース環境では本番広告を使用
+            if let productionAdUnitID = plist["BannerAdUnitID"] as? String {
+                return productionAdUnitID
+            }
+            #endif
         }
         
         // 3. デフォルトはテスト広告を使用
