@@ -944,22 +944,14 @@ class BannerAdView: UIView {
         if let path = Bundle.main.path(forResource: "AdMobConfig", ofType: "plist"),
            let plist = NSDictionary(contentsOfFile: path) {
             
-            // デバッグ/リリース環境を判定
-            #if DEBUG
-            // デバッグ環境ではテスト広告を使用
-            if let testAdUnitID = plist["TestBannerAdUnitID"] as? String {
-                return testAdUnitID
-            }
-            #else
-            // リリース環境では本番広告を使用
+            // 常に本番広告を使用（テストモードを無効化）
             if let productionAdUnitID = plist["BannerAdUnitID"] as? String {
                 return productionAdUnitID
             }
-            #endif
         }
         
-        // 3. デフォルトはテスト広告を使用
-        return "ca-app-pub-3940256099942544/2435281174"
+        // 3. デフォルトは本番広告を使用
+        return "ca-app-pub-6760883877695559/3478571110"
     }
     
     // MARK: - Initialization
