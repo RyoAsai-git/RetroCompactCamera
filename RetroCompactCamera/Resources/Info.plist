@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.7</string>
+	<key>CFBundleVersion</key>
+	<string>7</string>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-6760883877695559~6266663781</string>
 	<key>SKAdNetworkItems</key>
@@ -182,5 +186,11 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>このアプリはレトロなカメラ体験を提供するためにカメラへのアクセスが必要です。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>撮影した写真をフォトライブラリに保存するためにアクセスが必要です。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>撮影した写真をフォトライブラリに保存するためにアクセスが必要です。</string>
 </dict>
 </plist>

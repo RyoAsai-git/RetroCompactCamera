@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Compact Camera - 2000年代のデジカメ体験を再現</title>
+    <meta name="description" content="2000年代のコンパクトデジタルカメラを再現したiOSアプリ。懐かしいデジカメ体験を現代のiPhoneでお楽しみください。">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #1d1d1f;
+            background: #000;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            padding: 12px 0;
+        }
+
+        .nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 21px;
+            font-weight: 600;
+            color: #f5f5f7;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: #f5f5f7;
+            text-decoration: none;
+            font-size: 17px;
+            font-weight: 400;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: #0071e3;
+        }
+
+        /* Hero Section */
+        .hero {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: linear-gradient(135deg, #000 0%, #1a1a1a 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 113, 227, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-content {
+            max-width: 800px;
+            padding: 0 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero h1 {
+            font-size: clamp(48px, 8vw, 80px);
+            font-weight: 700;
+            color: #f5f5f7;
+            margin-bottom: 20px;
+            letter-spacing: -0.02em;
+        }
+
+        .hero .subtitle {
+            font-size: clamp(21px, 3vw, 28px);
+            font-weight: 400;
+            color: #a1a1a6;
+            margin-bottom: 30px;
+            letter-spacing: -0.01em;
+        }
+
+        .hero .description {
+            font-size: 19px;
+            color: #f5f5f7;
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: #0071e3;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 980px;
+            text-decoration: none;
+            font-size: 17px;
+            font-weight: 400;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .cta-button:hover {
+            background: #0077ed;
+            transform: translateY(-2px);
+        }
+
+        /* Features Section */
+        .features {
+            padding: 100px 0;
+            background: #f5f5f7;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 48px;
+            font-weight: 700;
+            color: #1d1d1f;
+            margin-bottom: 60px;
+            letter-spacing: -0.02em;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 60px;
+            margin-top: 80px;
+        }
+
+        .feature-card {
+            text-align: center;
+            padding: 40px 20px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .feature-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 15px;
+        }
+
+        .feature-description {
+            font-size: 17px;
+            color: #6e6e73;
+            line-height: 1.5;
+        }
+
+        /* App Store Section */
+        .app-store {
+            padding: 100px 0;
+            background: #000;
+            text-align: center;
+        }
+
+        .app-store h2 {
+            font-size: 48px;
+            font-weight: 700;
+            color: #f5f5f7;
+            margin-bottom: 20px;
+            letter-spacing: -0.02em;
+        }
+
+        .app-store p {
+            font-size: 21px;
+            color: #a1a1a6;
+            margin-bottom: 40px;
+        }
+
+        .app-store-badge {
+            display: inline-block;
+            margin: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .app-store-badge:hover {
+            transform: scale(1.05);
+        }
+
+        .app-store-badge img {
+            height: 60px;
+            width: auto;
+        }
+
+        /* Footer */
+        .footer {
+            background: #1d1d1f;
+            padding: 60px 0 40px;
+            color: #f5f5f7;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: #a1a1a6;
+            text-decoration: none;
+            font-size: 17px;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: #f5f5f7;
+        }
+
+        .footer-copyright {
+            font-size: 14px;
+            color: #6e6e73;
+            border-top: 1px solid #424245;
+            padding-top: 20px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero h1 {
+                font-size: 48px;
+            }
+
+            .hero .subtitle {
+                font-size: 21px;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .section-title {
+                font-size: 36px;
+            }
+
+            .footer-links {
+                flex-direction: column;
+                gap: 20px;
+            }
+        }
+
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Loading animation */
+        .loading {
+            opacity: 0;
+            animation: fadeIn 1s ease-in-out forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav">
+            <div class="logo">レトロコンパクトカメラ</div>
+            <ul class="nav-links">
+                <li><a href="#features">機能</a></li>
+                <li><a href="#download">ダウンロード</a></li>
+                <li><a href="#privacy">プライバシー</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content loading">
+            <h1>レトロコンパクトカメラ</h1>
+            <p class="subtitle">2000年代のデジカメ体験を再現</p>
+            <p class="description">
+                懐かしいデジタルカメラの撮影体験を現代のiPhoneでお楽しみください。
+                年代別の画質特性とUIで、あの頃のデジカメ時代を再現します。
+            </p>
+            <a href="#download" class="cta-button">App Storeでダウンロード</a>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">主な機能</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📸</div>
+                    <h3 class="feature-title">年代別モード</h3>
+                    <p class="feature-description">
+                       2000年代前期から後期まで、3つの年代別モードで
+                       それぞれの時代の画質特性を再現します。
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3 class="feature-title">画像処理エフェクト</h3>
+                    <p class="feature-description">
+                       Core Imageを使用した高品質な画像処理で、
+                       ノイズ、レンズ歪曲、周辺減光などを再現します。
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="feature-title">疑似EXIF情報</h3>
+                    <p class="feature-description">
+                       撮影日時、カメラメーカー、ISO感度など
+                       当時のデジカメらしいEXIF情報を生成します。
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3 class="feature-title">コンデジ風UI</h3>
+                    <p class="feature-description">
+                       バッテリー表示、日時表示、オートフォーカス枠など
+                       懐かしいデジカメのUIを再現します。
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔊</div>
+                    <h3 class="feature-title">撮影演出</h3>
+                    <p class="feature-description">
+                       シャッター音、フラッシュエフェクト、
+                       緑のオートフォーカス枠で臨場感を演出します。
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🖼️</div>
+                    <h3 class="feature-title">ギャラリー表示</h3>
+                    <p class="feature-description">
+                       サムネイル一覧と詳細表示で、
+                       撮影した写真を美しく管理できます。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- App Store Section -->
+    <section id="download" class="app-store">
+        <div class="container">
+            <h2>今すぐダウンロード</h2>
+            <p>iOS 17以上対応、iPhone 12以降でご利用いただけます</p>
+            <div class="app-store-badge">
+                <a href="https://apps.apple.com/app/retro-compact-camera" target="_blank">
+                    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" 
+                         alt="Download on the App Store" 
+                         style="height: 60px;">
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="privacy" class="footer">
+        <div class="footer-content">
+            <div class="footer-links">
+                <a href="https://doc-hosting.flycricket.io/retro-compact-camera-privacy-policy/ebb5c5c2-52f5-4868-b9c8-74d88cc99c1e/privacy" target="_blank">プライバシーポリシー</a>
+                <a href="mailto:qianjingling95@gmail.com">お問い合わせ</a>
+                <a href="#features">機能について</a>
+            </div>
+            <div class="footer-copyright">
+                <p>&copy; 2025 Retro Compact Camera. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add loading animation to elements as they come into view
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Observe feature cards
+        document.querySelectorAll('.feature-card').forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(30px)';
+            card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(card);
+        });
+    </script>
+</body>
+</html>
